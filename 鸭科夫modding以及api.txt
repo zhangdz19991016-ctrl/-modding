@@ -1,0 +1,202 @@
+Duckov Modding 示例 (Duckov Modding 示例)
+《关注鸭科夫》的 mod 示例说明。
+
+中文 |英语| 한국어
+
+标注的API
+
+关于和谐
+游戏目前没有内置Harmony。观察到同时加载不同版本Harmony时会有冲突。可以参考社区中比较流行的Harmony来进行开发，比如编写此文时最新的2.4.1版本。
+
+工作原理概述
+《依靠鸭科夫》的Mod系统会自动扫描并读取Duckov_Data/Mods文件夹，以及从Steam创意工坊中订阅的项目文件夹。当扫描发现这些文件夹中包含有特定的dll文件、info.ini和preview.png文件，那么就能够在游戏的Mods菜单中管理并加载mod。注意：mac系统的相关文件夹位于Duckov/Duckov.app/ Contents/Mods/。
+
+规则一
+游戏会读取mod文件夹的info.ini中的名称参数，并以此命名空间尝试加载名为ModBehaviour的类。例如，info.ini中的凳子有name=MyMod，作为底座加载MyMod.dll文件中的MyMod.ModBehaviour。
+
+规则二
+mod 的 ModBehaviour 类应继承自Duckov.Modding.ModBehaviour，这是一个继承自 MonoBehaviour 的类，其中包含了一些 mod 系统中使用的额外功能。在加载 mod 时，《涉鸭科夫》会创建需要一个该 mod 的 GameObject，通过并调用 GameObject.AddComponent(Type) 的方式创建一个 ModBehaviour 的实例。Mod 作者可以通过编写 ModBehaviour 的 Start\Update 等Unity事件实现自定义功能，也可以通过注册《引入鸭科夫》中的其他事件实现自定义功能。
+
+Mod 文件夹结构
+将准备好的Mod文件夹放到《关心鸭科夫》本体的Duckov_Data/Mods中，即可在游戏主界面的Mods界面加载该Mod。以上面的“MyMod”为例，发布的文件结构应该如下：
+
+MyMod（mod的文件夹）
+MyMod.dll（mod的自定义功能逻辑）
+info.ini（重要，mod的配置文件）
+Preview.png（托盘的预览图，建议解决256*256）
+Mod 文件夹示例
+
+info.ini 详情
+本配置文件应包含以下参数（不建议搭建其他的附加数据）：
+
+name（mod名称，主要用于加载dll文件。详情见上面的规则一）
+displayName（显示的名称）
+描述（显示的描述）
+publishedFileId（可能包含。本Mod在steam创意工坊的id）
+注意
+在上传 Steam Workshop 的时候，info.ini 会被复写，配置文件中原有的信息可能会因此丢失。所以，不建议在 info.ini 中记录除以上参数之外的其他数据。
+
+注意：在上传 Steam Workshop 的时候，会复写 info.ini。info.ini 中原有的信息可能会因此丢失。所以不建议在 info.ini 中存储除以上项目之外的其他信息。
+
+配置 C# 工程 / 配置 C# 项目
+在电脑上准备好《源自鸭科夫》本体。
+
+通过Visual Studio软件创建一个.Net类库（Class Library）。
+
+配置工程参数。
+
+框架（目标框架）
+
+TargetFramework 建议设置为 .Net Standard 2.1。
+注意删除TargetFramework不支持的功能，比如<ImplicitUsings>
+添加引用（参考包含）
+
+将《喂养鸭科夫》的\Duckov_Data\Managed\*.dll添加到引用中。
+译文：
+  <ItemGroup>
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\TeamSoda.*" />
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\ItemStatsSystem.dll" />
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Unity*" />
+  </ItemGroup>
+工程配置完成！现在在你的 Mod 工程的命名空间中编写了一个 ModBehaivour 的类。
+
+构建工程，即可获得你的mod的主要dll。然后按照上述说明，即可开始本地测试。
+
+csproj 文件示例
+
+注意！如果下面.csproj下的文件路径无法被识别问题时，可用第三方IDE(VS Code)打开文件，将文件从UTF-8 with BOM编码改为UTF-8（无BOM）并重新保存，再用Visual Studio打开就应该正常了。
+
+其他
+Unity 包
+使用Unity进行开发时，可以参考本仓库附带的manifest.json文件来选择包。
+
+自定义游戏项目
+创建自定义项目：ItemStatsSystem.ItemAssetsCollection.AddDynamicEntry(Item prefab)
+删除自定义项目：ItemStatsSystem.ItemAssetsCollection.RemoveDynamicEntry(Item prefab)
+自定义物品的预制件上需要配置好TypeID。该ID应避免与游戏本体、其他MOD冲突。
+进入游戏时如果未加载对应MOD，文档中的自定义项目会直接消失。
+本土化
+覆盖本地化文本：SodaCraft.Localizations.LocalizationManager.SetOverrideText(string key, string value)
+处理语言切换时的逻辑：SodaCraft.Localizations.LocalizationManager.OnSetLanguage:System.Action<SystemLanguage>
+
+
+
+
+# Notable APIs and Implementation Details
+
+## Items Related
+
+### Item Generation
+
+Use ItemAssetsCollection class to generate item instances.
+
+```
+//notable functions
+public static async UniTask<Item> InstantiateAsync(int typeID)
+public static Item InstantiateSync(int typeID) 
+```
+
+```
+using ItemStatsSystem;
+
+...
+//generate a glick (Item #254)
+Item glick = ItemAssetsCollection.InstantiateAsync(254);
+
+//Do something it with it. for example send it to player:
+ItemUtilities.SendToPlayer(glick);
+...
+
+```
+
+### Item Utilities
+
+You can call functions in ItemUtilities to send item to players' storage.
+And do other stuff.
+
+```
+//notable functions
+
+//send to player and storage
+public static void SendToPlayer(Item item, bool dontMerge = false, bool sendToStorage = true)
+public static bool SendToPlayerCharacter(Item item, bool dontMerge = false)
+public static bool SendToPlayerCharacterInventory(Item item, bool dontMerge = false)
+
+//check item's relationship
+public static bool IsInPlayerCharacter(this Item item)
+public static bool IsInPlayerStorage(this Item item)
+
+//Try plug one item to another's slot
+public static bool TryPlug(this Item main, Item part, bool emptyOnly = false, Inventory backupInventory = null, int preferredFirstIndex = 0)
+```
+
+### Item
+
+Item class is defined in ItemStatsSystem.
+
+
+```
+//notable function definitions
+
+//make the item loose. unplug the item, or move it out of the inventory.
+public void Detach()
+
+
+```
+
+## Character Related
+
+### CharacterMainControl
+CharacterMainControl is the core of a character.
+
+```
+//notable function definitions
+
+//set the team of a character
+public void SetTeam(Teams _team)
+```
+
+### Enemy Generation
+
+(to be written)
+
+## Dialogues
+
+### Screen Bottom Dialogue
+
+The main subtitle function is previously only called by the events listeners. I will change it to public after release 1.0.29 so you can call it freely.
+But be careful with it since it's an async function, and instances of the calls will interfere themselves.
+
+```
+//function in DialogueUI
+public async UniTask DoSubtitle(SubtitlesRequestInfo info)
+```
+
+```
+using Dialogues;
+
+...
+NodeCanvas.DialogueTrees.SubtitlesRequestInfo content = new(...);
+...
+DialogueUI.instance.DoSubtitle(content);
+...
+
+```
+### Dialogue Bubble
+Use this to do the bubble.
+
+```
+//class
+Duckov.UI.DialogueBubbles.DialogueBubblesManager
+
+//function definition
+public static async UniTask Show(string text, Transform target, float yOffset = -1, bool needInteraction = false, bool skippable = false,float speed=-1, float duration = 2f)
+```
+
+```
+using Duckov.UI.DialogueBubbles;
+
+...
+DialogueBubblesManager.Show("Hello world!", someGameObject.transform);
+...
+```
