@@ -1,0 +1,119 @@
+这份文档旨在为 AI 助手提供《Duckov》（鸭科夫）模组开发的**API 架构全景图**。当你或未来的 AI 需要开发新功能时，可以根据以下分类快速定位核心文件和逻辑入口。
+
+---
+
+# 🛠️ Duckov 模组开发 API 架构速查表
+
+**核心库命名空间**: `TeamSoda.Duckov.Core` (以及 `Duckov.*`)
+**主要逻辑模式**: 典型的 Unity 架构 (MonoBehaviour + ScriptableObject 数据驱动)。
+
+---
+
+### 1. 模组生命周期与入口 (Mod Entry)
+所有模组的起点，负责初始化和资源加载。
+
+* **核心基类**: `Duckov.Modding.ModBehaviour`
+    * **`OnAfterSetup()`**: 模组加载时调用，用于注册补丁、加载资源。
+    * **`OnLevelInitialized()`**: 每次进入关卡/场景时调用，用于在场景中生成物体或重置状态。
+* **配置管理**: `DuckovSkills/ModConfigAPI.cs` (推测用于处理模组设置)。
+
+---
+
+### 2. 交互系统 (Interaction System)
+用于让玩家与世界中的物体（NPC、箱子、工作台）进行互动（按 F 键）。
+
+* **交互基类**: `InteractableBase.cs` (所有交互物体的父类)。
+* **多重交互 (关键)**: `MultiInteraction.cs`
+    * **用途**: 当一个物体（如 NPC）需要同时具备“商店”、“对话”、“技能树”多种功能时使用。
+    * **配合**: `MultiInteractionMenu.cs` (显示选择菜单)。
+* **常见实现**:
+    * `InteractableLootbox.cs`: 战利品箱。
+    * `InteractablePickup.cs`: 地面拾取物。
+    * `Door.cs` / `DoorTrigger.cs`: 门与触发器。
+
+---
+
+### 3. 技能与天赋系统 (Perk System)
+用于创建技能树、被动天赋或主动技能。
+
+* **核心数据**:
+    * `Duckov/PerkTrees/PerkTree.cs`: 定义一整棵技能树（包含多个节点）。
+    * `Duckov/PerkTrees/Perk.cs`: 定义单个技能节点（图标、名字、消耗）。
+* **技能逻辑 (AI 重点关注)**:
+    * **`Duckov/PerkTrees/PerkBehaviour.cs`**: **所有自定义技能效果必须继承此类**。
+    * **实现方法**: 重写 `OnUnlock()` (解锁时触发) 或 `OnEquip()`。
+* **交互入口**:
+    * `Duckov/PerkTrees/Interactable/PerkTreeUIInvoker.cs`: 挂载在物体上，玩家交互时打开指定的 `PerkTree` 界面。
+
+---
+
+### 4. 物品与库存系统 (Item & Stats System)
+涉及物品定义、属性修改、背包管理。
+
+* **物品定义**:
+    * `ItemStatsSystem/Item.cs`: 物品的基础类。
+    * `ItemStatsSystem/ItemMetaData.cs`: 物品的元数据。
+* **物品使用效果**:
+    * `ItemStatsSystem/UsageBehavior.cs`: 定义物品被“使用”（如吃药、开枪）时的行为。
+    * `Duckov/ItemUsage/*.cs`: 具体的使用逻辑示例（如 `SpawnEgg.cs`, `AddBuff.cs`）。
+* **属性修改**:
+    * `ItemStatsSystem/Stat.cs`: 核心属性类（如生命值、攻击力）。
+    * `CharacterMainControl.Main.CharacterItem.Stats`: 获取主角属性的入口。
+* **商店与经济**:
+    * `Duckov/Economy/StockShop.cs`: 普通商店逻辑。
+    * `Duckov/BlackMarkets/BlackMarket.cs`: 黑市逻辑。
+
+---
+
+### 5. 事件监听与触发 (Events & Triggers)
+用于在特定游戏事件发生时执行代码（Hook）。
+
+* **物品/战斗触发器**:
+    * `ItemStatsSystem/ItemUsedTrigger.cs`: 物品被使用时触发。
+    * `ItemStatsSystem/OnShootAttackTrigger.cs`: 射击/攻击时触发。
+    * `ItemStatsSystem/OnTakeDamageTrigger.cs`: 受伤时触发。
+* **全局事件**:
+    * `LevelManager.OnAfterLevelInitialized`: 关卡加载完成。
+    * `Duckov/DeadBodyManager.cs`: 监听死亡事件。
+
+---
+
+### 6. 任务与剧情 (Quests & Dialogue)
+用于添加任务线和 NPC 对话。
+
+* **任务**:
+    * `Duckov/Quests/QuestManager.cs`: 任务管理器。
+    * `Duckov/Quests/Quest.cs` & `Duckov/Quests/Task.cs`: 定义任务和具体目标（如杀怪、收集）。
+    * `Duckov/Quests/Reward.cs`: 任务奖励定义。
+* **对话**:
+    * `Duckov/Dialogues/DialogueUI.cs`: 对话界面控制。
+    * `DuckovDialogueActor.cs`: 挂在 NPC 身上，用于触发对话。
+
+---
+
+### 7. 实体与 AI (Entities & Spawning)
+用于生成敌人、NPC 或修改生物行为。
+
+* **生成**:
+    * `CharacterSpawnerBase.cs`: 生成器的基类。
+    * `EnemyCreator.cs`: 敌人生成逻辑。
+* **角色控制**:
+    * `CharacterMainControl.cs`: 主角控制器（获取玩家位置、状态的核心）。
+    * `AICharacterController.cs`: AI 敌人的控制器。
+    * `DamageReceiver.cs`: 处理实体受伤逻辑的组件。
+
+---
+
+### 📜 给 AI 的编程提示 (AI Hint)
+
+如果你（AI）需要编写 Duckov 的模组代码，请遵循以下模式：
+
+1.  **寻找入口**: 先确定要在什么时机执行代码。如果是游戏启动，用 `ModBehaviour.OnAfterSetup`；如果是进入地图，用 `ModBehaviour.OnLevelInitialized`。
+2.  **继承行为**:
+    * 想做技能？继承 `PerkBehaviour`。
+    * 想做物品效果？继承 `UsageBehavior`。
+    * 想做新物体交互？继承 `InteractableBase`。
+3.  **解决冲突**: 如果要给现有的 NPC 添加功能，优先检查它是否包含 `MultiInteraction` 组件，利用该组件添加选项，而不是暴力覆盖。
+4.  **数据驱动**: 游戏大量使用 ScriptableObject。在代码中实例化数据类（如 `Perk` 或 `Quest`）时，注意需要正确填充其字段，否则 UI 会报错。
+
+这个列表涵盖了 `TeamSoda.Duckov.Core` 中 90% 的常用模组开发接口。
